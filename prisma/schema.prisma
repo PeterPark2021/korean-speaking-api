@@ -1,0 +1,102 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum NativeLanguage {
+  CHINESE
+  VIETNAMESE
+  OTHER
+}
+
+enum ExamStatus {
+  IN_PROGRESS
+  SUBMITTED
+  EXPIRED
+  EVALUATED
+}
+
+model User {
+  id             String         @id @default(uuid())
+  email          String         @unique
+  nativeLanguage NativeLanguage @default(CHINESE)
+  credits        Int            @default(1)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  
+  examSessions   ExamSession[]
+  payments       Payment[]
+  subscriptions  Subscription[]
+
+  @@map("tbl_users")
+}
+
+model ExamSession {
+  id            String                @id @default(uuid())
+  userId        String
+  status        ExamStatus            @default(IN_PROGRESS)
+  currentQIndex Int                   @default(0)
+  startedAt     DateTime              @default(now())
+  expiresAt     DateTime
+  totalScore    Float?
+  scorePron     Float?
+  scoreAcc      Float?
+  scoreContent  Float?
+  createdAt     DateTime              @default(now())
+  
+  user          User                  @relation(fields: [userId], references: [id])
+  submissions   QuestionSubmission[]
+
+  @@map("tbl_exam_sessions")
+}
+
+model QuestionSubmission {
+  id            String      @id @default(uuid())
+  sessionId     String
+  questionId    Int
+  sttTranscript String?
+  sttRawResult  Json?
+  scorePron     Float       @default(0)
+  scoreAcc      Float       @default(0)
+  scoreContent  Float       @default(0)
+  wpm           Float?
+  pauseRatio    Float?
+  feedback      String?
+  createdAt     DateTime    @default(now())
+
+  session       ExamSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, questionId])
+  @@map("tbl_question_submissions")
+}
+
+model Payment {
+  id             String   @id @default(uuid())
+  userId         String
+  orderId        String   @unique
+  planId         String
+  amount         Int
+  status         String
+  paymentKey     String?
+  idempotencyKey String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user           User     @relation(fields: [userId], references: [id])
+  @@map("tbl_payments")
+}
+
+model Subscription {
+  id        String   @id @default(uuid())
+  userId    String
+  startDate DateTime @default(now())
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+
+  user      User     @relation(fields: [userId], references: [id])
+  @@map("tbl_subscriptions")
+}
